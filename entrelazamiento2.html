@@ -1,0 +1,316 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Simulador EPR: Burlando la Incertidumbre</title>
+    <style>
+        :root {
+            --bg-color: #0d1117;
+            --panel-bg: #161b22;
+            --text-color: #c9d1d9;
+            --particle-a: #58a6ff; /* Cyan */
+            --particle-b: #f06292; /* Magenta */
+            --border-color: #30363d;
+        }
+
+        body, html {
+            margin: 0;
+            padding: 0;
+            height: 100%;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        h1 { margin-top: 20px; color: white; text-align: center; }
+
+        #main-container {
+            display: flex;
+            flex-direction: column;
+            width: 100%;
+            max-width: 900px;
+            gap: 20px;
+            padding: 20px;
+            box-sizing: border-box;
+        }
+
+        /* --- Panel Visual (El Laboratorio) --- */
+        #viewport {
+            background-color: var(--panel-bg);
+            border: 2px solid var(--border-color);
+            border-radius: 12px;
+            height: 350px;
+            position: relative;
+            overflow: hidden;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            box-shadow: inset 0 0 50px rgba(0,0,0,0.8);
+        }
+
+        /* Representación de las partículas */
+        .particle {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            position: absolute;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-weight: bold;
+            color: white;
+            font-size: 18px;
+            /* Estado inicial: Nube de probabilidad (Borrosa) */
+            filter: blur(4px);
+            opacity: 0;
+            transition: filter 0.8s ease, transform 0.8s ease, width 0.8s ease;
+        }
+
+        #particle-a {
+            background-color: var(--particle-a);
+            box-shadow: 0 0 20px var(--particle-a);
+            left: 50%;
+        }
+
+        #particle-b {
+            background-color: var(--particle-b);
+            box-shadow: 0 0 20px var(--particle-b);
+            right: 50%;
+        }
+
+        /* Reglas de Ejes (Visores de medición) */
+        .axis-line {
+            position: absolute;
+            width: 100%;
+            height: 1px;
+            background: rgba(255, 255, 255, 0.1);
+            top: 50%;
+            z-index: 0;
+        }
+
+        .target-box {
+            position: absolute;
+            width: 60px;
+            height: 60px;
+            border: 2px dashed rgba(255, 255, 255, 0.3);
+            border-radius: 8px;
+            top: 50%;
+            transform: translateY(-50%);
+            opacity: 0;
+            transition: opacity 0.5s;
+        }
+
+        #target-a { left: 15%; border-color: var(--particle-a); }
+        #target-b { right: 15%; border-color: var(--particle-b); }
+
+        /* --- Panel de Controles --- */
+        #controls {
+            display: flex;
+            gap: 15px;
+            justify-content: center;
+        }
+
+        button {
+            padding: 12px 20px;
+            font-size: 1em;
+            font-weight: bold;
+            border-radius: 6px;
+            cursor: pointer;
+            border: none;
+            transition: all 0.3s;
+            text-transform: uppercase;
+        }
+
+        button:disabled { opacity: 0.3; cursor: not-allowed; }
+
+        #btn-emit { background-color: #2ea043; color: white; }
+        #btn-emit:hover:not(:disabled) { background-color: #3fb950; }
+
+        #btn-pos-a { background-color: var(--particle-a); color: #000; }
+        #btn-pos-a:hover:not(:disabled) { filter: brightness(1.2); }
+
+        #btn-vel-b { background-color: var(--particle-b); color: #000; }
+        #btn-vel-b:hover:not(:disabled) { filter: brightness(1.2); }
+
+        #btn-reset { background-color: transparent; border: 1px solid #da3633; color: #da3633; }
+        #btn-reset:hover { background-color: #da3633; color: white; }
+
+        /* --- Panel de Narración --- */
+        #narration-panel {
+            background-color: var(--panel-bg);
+            border-left: 4px solid #8b949e;
+            padding: 20px;
+            border-radius: 0 8px 8px 0;
+            font-size: 1.1em;
+            line-height: 1.6;
+            min-height: 120px;
+        }
+
+        .highlight { color: #58a6ff; font-weight: bold; }
+        .lesson { color: #ff7b72; font-weight: bold; margin-top: 15px; display: block; }
+
+    </style>
+</head>
+<body>
+
+    <h1>Simulador EPR: La Paradoja de la Incertidumbre</h1>
+
+    <div id="main-container">
+        
+        <div id="viewport">
+            <div class="axis-line"></div>
+            <div id="target-a" class="target-box"></div>
+            <div id="target-b" class="target-box"></div>
+            
+            <div id="particle-a" class="particle">A</div>
+            <div id="particle-b" class="particle">B</div>
+        </div>
+
+        <div id="controls">
+            <button id="btn-emit">Emitir Partículas</button>
+            <button id="btn-pos-a" disabled>1. Medir Posición (A)</button>
+            <button id="btn-vel-b" disabled>2. Medir Velocidad (B)</button>
+            <button id="btn-reset">Reiniciar</button>
+        </div>
+
+        <div id="narration-panel">
+            <strong>Preparación:</strong> Haz clic en "Emitir Partículas" para disparar un par de partículas entrelazadas. En su estado de viaje, tanto su posición exacta como su velocidad son "nubes de probabilidad" borrosas.
+        </div>
+
+    </div>
+
+    <script>
+        // Elementos del DOM
+        const pA = document.getElementById('particle-a');
+        const pB = document.getElementById('particle-b');
+        const targetA = document.getElementById('target-a');
+        const targetB = document.getElementById('target-b');
+        
+        const btnEmit = document.getElementById('btn-emit');
+        const btnPosA = document.getElementById('btn-pos-a');
+        const btnVelB = document.getElementById('btn-vel-b');
+        const btnReset = document.getElementById('btn-reset');
+        
+        const narration = document.getElementById('narration-panel');
+
+        let isEmitted = false;
+
+        // ACCIÓN: Emitir Partículas
+        btnEmit.onclick = () => {
+            if (isEmitted) return;
+            isEmitted = true;
+            btnEmit.disabled = true;
+
+            // Mostrar como nubes borrosas (incertidumbre en posición y velocidad)
+            pA.style.opacity = "1";
+            pB.style.opacity = "1";
+            pA.style.filter = "blur(8px)";
+            pB.style.filter = "blur(8px)";
+            
+            targetA.style.opacity = "1";
+            targetB.style.opacity = "1";
+
+            narration.innerHTML = `<span class="highlight">Viaje Cuántico:</span> Las partículas entrelazadas viajan en direcciones opuestas. Fíjate que son borrosas: según Heisenberg, no tienen una posición ni velocidad exacta definida en este momento.`;
+
+            // Animación de separación fluida (simulando movimiento continuo)
+            pA.style.transition = "left 3s linear, filter 0.5s";
+            pB.style.transition = "right 3s linear, filter 0.5s";
+            
+            // Forzar reflow para aplicar transición
+            void pA.offsetWidth; 
+            
+            pA.style.left = "calc(15% + 10px)";
+            pB.style.right = "calc(15% + 10px)";
+
+            // Habilitar la medición de posición de A después de un breve momento
+            setTimeout(() => {
+                btnPosA.disabled = false;
+            }, 1000);
+        };
+
+        // ACCIÓN 1: Medir Posición de A
+        btnPosA.onclick = () => {
+            btnPosA.disabled = true;
+            
+            // Pausar el movimiento (congelar posición)
+            const currentLeftA = window.getComputedStyle(pA).left;
+            const currentRightB = window.getComputedStyle(pB).right;
+            
+            pA.style.transition = "filter 0.3s, transform 0.3s";
+            pB.style.transition = "filter 0.3s, transform 0.3s";
+            
+            pA.style.left = currentLeftA;
+            pB.style.right = currentRightB;
+
+            // EFECTO VISUAL: Eliminar el blur. La posición es ahora EXACTA (puntos sólidos)
+            pA.style.filter = "blur(0px)";
+            pB.style.filter = "blur(0px)";
+            
+            // Pequeño resalte visual
+            pA.style.transform = "scale(0.8)";
+            pB.style.transform = "scale(0.8)";
+
+            narration.innerHTML = `<span class="highlight">Acción 1 (Medición de Posición):</span> Has medido la posición exacta de la Partícula A (se volvió un punto sólido). <br><br><strong>El Entrelazamiento entra en acción:</strong> Al conocer A, la posición de B se define automáticamente y también se vuelve un punto nítido. ¡Parece que le hemos ganado a Heisenberg porque conocemos la posición de B sin tocarla!`;
+
+            setTimeout(() => {
+                btnVelB.disabled = false;
+            }, 1500);
+        };
+
+        // ACCIÓN 2: El Truco EPR (Medir Velocidad de B)
+        btnVelB.onclick = () => {
+            btnVelB.disabled = true;
+
+            // EFECTO VISUAL: La velocidad se mide (sabemos hacia dónde va), 
+            // pero la posición se destruye (se vuelve extremadamente borrosa y estirada).
+            pB.style.transition = "all 0.5s ease-in";
+            
+            // Estirar horizontalmente y aplicar mucho blur para indicar pérdida total de posición
+            pB.style.width = "200px";
+            pB.style.filter = "blur(15px) contrast(1.5)";
+            pB.style.transform = "translateX(50px) scale(1.5)";
+
+            narration.innerHTML = `
+                <span class="highlight">Acción 2 (El Truco EPR):</span> Intentas medir la velocidad (momento) de la Partícula B.<br><br>
+                <span class="lesson">La Lección:</span> Al obligar a la naturaleza a revelarte la velocidad de B, su posición se vuelve instantáneamente borrosa e indeterminada. Por más que intentes saber dónde está y a qué velocidad va usando el entrelazamiento, la naturaleza te prohíbe tener ambas informaciones. El principio de incertidumbre es inquebrantable.<br><br>
+                <strong>Interpretación:</strong> ¿Es porque nuestra tecnología es torpe y "destruye" la lectura, o es porque el electrón <em>realmente</em> no posee posición y velocidad definidas simultáneamente en el tejido del universo?
+            `;
+        };
+
+        // REINICIAR
+        btnReset.onclick = () => {
+            isEmitted = false;
+            
+            // Resetear estilos de partículas
+            pA.style.transition = "none";
+            pB.style.transition = "none";
+            
+            pA.style.left = "50%";
+            pB.style.right = "50%";
+            pA.style.width = "40px";
+            pB.style.width = "40px";
+            pB.style.transform = "none";
+            pA.style.transform = "none";
+            pA.style.filter = "blur(4px)";
+            pB.style.filter = "blur(4px)";
+            pA.style.opacity = "0";
+            pB.style.opacity = "0";
+
+            targetA.style.opacity = "0";
+            targetB.style.opacity = "0";
+
+            // Resetear botones
+            btnEmit.disabled = false;
+            btnPosA.disabled = true;
+            btnVelB.disabled = true;
+
+            narration.innerHTML = `<strong>Preparación:</strong> Haz clic en "Emitir Partículas" para disparar un par de partículas entrelazadas. En su estado de viaje, tanto su posición exacta como su velocidad son "nubes de probabilidad" borrosas.`;
+        };
+
+    </script>
+</body>
+</html>
